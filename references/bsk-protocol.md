@@ -13,9 +13,17 @@
 
 - `bsk open <url> --scope <唯一名> --no-focus --json` 返回：`session_id`、`context_id`、`observation_id`、`url`、`vom`（整页 aria 快照文本，@eN ref 都在里面）。
 - **scope 必须全局唯一**：同名 scope 二次 open 会被扩展拒绝（即使上个会话已死）。用 `前缀:时间戳36进制:自增` 三段式。
-- **open 前先 `bsk close --session <上一个>`**：旧会话的 tab 不归还，新 open 报「A page frame changed; synchronize before choosing this action」。
+- **绝不 close 有已填写内容的会话**：`bsk close --session` 会连标签页一起关——抖音/小红书/视频号的发布页**没有草稿兜底**，关了等于把填好的内容全丢掉（用户就没法点发布了）。多个会话（多个 tab）可以共存，scope 唯一即可；只有读类临时会话（doctor/取链接开的管理页）用完才 close。
 - open 失败时若返回了 session_id：先 `bsk cooperate sync --session <id>` 重建上下文，再换新 scope 重试一次。
 - 之后所有 DOM 动作带 `--session <id> --context <context_id>`；context 会因页面跳变失效，失败信息含 `observation/context/observed_change/stale/coverage` 时 **先 cooperate sync 再重试一次**（只重试一次，不循环）。
+
+## 2.5 闲置回收与保活（「填好的页面莫名消失」的根源）
+
+- bsk 对**无人触摸的 task 页有闲置回收**（实测约 10 分钟）：`session_count` 会自己掉，填好的发布页跟着没了。
+- 「待你发布」期间必须**保活**：每 4 分钟对每个会话跑一次 `bsk cooperate sync --session <id> --json`（只读操作，不惊动页面），直到用户点完发布或超时上限（建议 3 小时）。
+- 保活循环要跑在**常驻进程**里：跑在一次性脚本里，脚本一退出定时器就死（踩过）。且 `setInterval` 的回调里对失效会话（sync 报错）从名单剔除，全部失效即停止。
+- 用户开始交互（点击/输入）后有人工参与保护，但别赌——保活一直挂着最稳。
+- `bsk window` 只有 resize，没有 focus/激活命令；引导用户在 Chrome 里找 BrowserSkill Agent 窗口即可。
 
 ## 3. observe（VOM）与元素定位
 

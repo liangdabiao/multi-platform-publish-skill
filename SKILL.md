@@ -51,12 +51,14 @@ Chrome 136+ 官方禁止对默认用户目录开 CDP 调试端口——「独立
 
 ## 工作流要点
 
-1. **每次会话一个 scope，全局唯一**（`scope = 前缀 + 时间戳 + 序号`）；open 前先 close 旧会话（旧会话不还，新 open 会被「frame changed」拒）。
-2. **每平台跑完整个生命周期再下一家**：预检登录 → open → 填写 → 等上传完成 → 补封面 → 停。
-3. **上传只发一次**；结果未知时用「表单元素出现」确认，而不是重试。
-4. **上传等待加轮次上限**（如 60 轮 × 20s），防止页面异常时挂死。
-5. 读回校验一律走 bsk 的观察文本（VOM）而非 DOM read（read 的 CSS 查询穿不进 micro-app/shadow）。
-6. 遇到「账本冻结」（一切 mutating 被拦）：`bsk ledger status --json` → `bsk ledger resolve --operation-id <id>` 核销（先确认页面没收到文件）。
+1. **填好的页面是交付物，绝不关闭**：填写完成后所有会话/标签页保持打开——用户要在那些页面里点「发布」。抖音/小红书/视频号**没有草稿兜底**，关掉 tab 内容就没了。跑完输出各平台 tab 清单告诉用户去哪点。
+2. **保活**：bsk 对无人触摸的页面约 10 分钟闲置回收。「待你发布」期间每 4 分钟对所有会话 `cooperate sync` 一次（最多 3 小时），用 scripts/keep-alive.mjs 或等价循环；保活循环必须在常驻进程里。
+3. **每平台跑完整个生命周期再下一家**：预检登录 → open → 填写 → 等上传完成 → 补封面 → 停。预检与填写**复用同一个会话**（预检记录 session/tab，填写切回去），否则每平台会开两个重复 tab。
+4. **上传只发一次**；结果未知时用「表单元素出现」确认，而不是重试。
+5. **上传等待加轮次上限**（如 60 轮 × 20s），防止页面异常时挂死。
+6. 读回校验一律走 bsk 的观察文本（VOM）而非 DOM read（read 的 CSS 查询穿不进 micro-app/shadow）。
+7. 遇到「账本冻结」（一切 mutating 被拦）：`bsk ledger status --json` → `bsk ledger resolve --operation-id <id>` 核销（先确认页面没收到文件）。
+8. **重跑已到位的平台要显式放行**：防重状态机里「force 跳过提前返回」和「force 跳过已到位过滤」必须同时成立——踩过 force 只跳过前者、后者把平台全部过滤掉，导致静默空跑（run 完成 states 为空）。空 states 的 run 一律视为 bug，不要当成成功。
 
 ## 文件索引
 
@@ -71,3 +73,4 @@ Chrome 136+ 官方禁止对默认用户目录开 CDP 调试端口——「独立
 | [references/debugging-playbook.md](references/debugging-playbook.md) | 调试手册：VOM 侦查→mock 回归→校准循环、常见报错速查 |
 | [scripts/file-bridge.mjs](scripts/file-bridge.mjs) | 本地文件桥服务模块（直接复用） |
 | [scripts/calib-template.mjs](scripts/calib-template.mjs) | 新平台校准脚本模板 |
+| [scripts/keep-alive.mjs](scripts/keep-alive.mjs) | 待发布页保活脚本（防 bsk 闲置回收，常驻跑） |

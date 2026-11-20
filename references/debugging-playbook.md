@@ -61,3 +61,10 @@ for (const l of br.vomText.split('\n')) if (/标题|上传|textbox|button|placeh
 - 所有 bsk CLI 细节（参数名/输出解析/报错分类）收在一个桥模块里，适配器只调语义方法（open/fill/click/upload/evaluate/...）——真机校准只改桥，不动适配器。
 - mock 页面状态机是回归基准：改桥/改适配器后 `npm test` + `npm run smoke` 必须全绿再上真机。
 - 版本固定上游适配快照（如 vendor 校验规则），跟进上游手动 diff。
+
+### 编排层坑（状态机/进程）
+
+- **force/重跑语义要两处同时放行**：「跳过提前 return」和「跳过已到位过滤」缺一不可——踩过 force 只改了前者，后者把平台全过滤掉，run 静默空跑（states 为空却报成功）。**states 为空的 run 一律当 bug 查**。
+- **保活循环跑在常驻进程**：一次性脚本里 setInterval 随进程退出而死，保活形同虚设。
+- **长任务经管道跑时 node stdout 是块缓冲**：后台任务日志看不到进度，输出落盘文件（`> file.log`）或写库。
+- **node -e 里的模板串会被 bash 吃**（`${}` 替换、反引号）——带模板字符串的诊断/校准代码写成脚本文件跑，别塞 -e。

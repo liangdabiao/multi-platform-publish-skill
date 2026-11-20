@@ -57,7 +57,8 @@ bsk evaluate '<script>' --session <id> --context <ctx> --unverified --json
 
 - **mutating 动作绝不重试**：bsk 防重放机制会拦第二次（报 prior tool.upload blocked），且第一次可能已经生效。
 - 结果未知（effect_state unknown）时：sync 观察 → 「表单/进度元素出现」= 成功；页面没变 = 失败，可核销账本后换通道重试。
-- 上传等待用轮次上限（如 60 轮 × 20s），不用无限 deadline——页面异常时挂死比失败更糟。
+- **上传等待循环每轮必须先刷新观察（cooperate sync）**：uploadDone 读的是 VOM 文本，不同步就永远看到填写结束时的冻结快照——视频其实早传完了，程序却干等到超时（踩过：小红书卡「上传中」20 分钟，实际 1 分钟就传完了）。
+- 上传等待用时间上限（如 4 小时兜底）+ 合理轮询间隔（5s），不用无限 deadline——页面异常时挂死比失败更糟。
 - 文件大时 evaluate 里不能同步等 fetch（60s 超时），用 fire-and-forget + 独立轮询（见 file-bridge-upload.md）。
 
 ## 7. 常见报错速查
